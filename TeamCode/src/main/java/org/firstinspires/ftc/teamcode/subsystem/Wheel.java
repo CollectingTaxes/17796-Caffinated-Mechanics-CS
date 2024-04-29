@@ -36,14 +36,18 @@ public class Wheel extends Subsystem {
 
     public Wheel(@NonNull OpMode opMode) {
         super(opMode);
-        wheel = opMode.hardwareMap.get(CRServo.class, "gripper");
+        wheel = opMode.hardwareMap.get(CRServo.class, "wheel");
         wheel.setDirection(DcMotorSimple.Direction.FORWARD);
     }
 
     @Override
     protected void manualControl() {
-        if (opMode.gamepad1.right_trigger > 0.2) on();
-        else if (opMode.gamepad1.right_trigger < 0.2) off();
+        if (opMode.gamepad1.right_trigger > 0.2) {
+            on();
+        }
+        else if (opMode.gamepad1.right_trigger < 0.2) {
+            off();
+        }
     }
 
     public void on() {
