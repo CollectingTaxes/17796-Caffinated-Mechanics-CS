@@ -1,6 +1,7 @@
 package org.firstinspires.ftc.teamcode.subsystem;
 
-import static org.firstinspires.ftc.robotcore.external.BlocksOpModeCompanion.opMode;
+import static org.firstinspires.ftc.teamcode.subsystem.Slides.LiftMotorConstants;
+import static org.firstinspires.ftc.teamcode.subsystem.Slides.LiftServoConstants;
 
 import com.arcrobotics.ftclib.hardware.ServoEx;
 import com.arcrobotics.ftclib.hardware.SimpleServo;
@@ -29,8 +30,8 @@ public class Slides extends HardwareSubsystem {
             public boolean LEFT_REVERSED = true;
             public boolean RIGHT_REVERSED = false;
             public double
-                    RPM           = 312,
-                    CPR           = 547.7;
+                    RPM           = 435,
+                    CPR           = 384.539792388;
         }
 
         public static class Controller {
@@ -44,11 +45,11 @@ public class Slides extends HardwareSubsystem {
         }
         public static class Position {
             public double
-                    TALL = 100, // Degrees
-                    MIDDLE = 100, // Degrees
-                    LOWER = 100, // Degrees
+                    TALL = 955, // Degrees
+                    MIDDLE = 330, // Degrees
+                    LOWER = 0, // Degrees
                     INITIAL = 0,
-                    MAX_POSITION = 100,
+                    MAX_POSITION = 1210,
                     MIN_POSITION = 0;
         }
         public static class Speed {
@@ -73,9 +74,9 @@ public class Slides extends HardwareSubsystem {
 
         public static class Position {
             public double
-                    HIGH          = 50, // Degrees
-                    MID           = 50, // Degrees
-                    LOW           = 50, // Degrees
+                    HIGH          = 219, // Degrees
+                    MID           = 219, // Degrees
+                    LOW           = 142, // Degrees
                     INITIAL = 6,
                     RIGHT_SERVO_OFFSET = 0;
         }
@@ -204,26 +205,6 @@ public class Slides extends HardwareSubsystem {
     @Override
     public void init() {
 
-    }
-
-    @Override
-    protected void manualControl() {
-        if (opMode.gamepad2.dpad_up) {
-            high();
-        }
-        else if (opMode.gamepad2.dpad_right) {
-            mid();
-        } else if (opMode.gamepad2.dpad_left) {
-            low();
-        } else if (opMode.gamepad2.dpad_down) {
-            initial();
-        }
-
-        if (opMode.gamepad2.left_stick_y < 0.2) {
-            decreaseMotorPosition();
-        } else if (opMode.gamepad2.left_stick_y > 0.2) {
-            increaseMotorPosition();
-        }
     }
 
 

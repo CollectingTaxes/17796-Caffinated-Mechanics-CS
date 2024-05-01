@@ -19,8 +19,6 @@ public abstract class HardwareSubsystem extends SubsystemBase {
     }
     public abstract void init();
 
-    protected abstract void manualControl();
-
     public abstract void periodic();
 
 }

@@ -1,15 +1,36 @@
 package org.firstinspires.ftc.teamcode.subsystem;
 
+import static org.firstinspires.ftc.teamcode.util.DriveConstants.Controller.MAX_ACCEL;
+import static org.firstinspires.ftc.teamcode.util.DriveConstants.Controller.MAX_ANG_ACCEL;
+import static org.firstinspires.ftc.teamcode.util.DriveConstants.Controller.MAX_ANG_VEL;
+import static org.firstinspires.ftc.teamcode.util.DriveConstants.Controller.MAX_VEL;
+import static org.firstinspires.ftc.teamcode.util.DriveConstants.Controller.MOTOR_VELO_PID;
+import static org.firstinspires.ftc.teamcode.util.DriveConstants.Controller.RUN_USING_BUILT_IN_CONTROLLER;
+import static org.firstinspires.ftc.teamcode.util.DriveConstants.Controller.kA;
+import static org.firstinspires.ftc.teamcode.util.DriveConstants.Controller.kStatic;
+import static org.firstinspires.ftc.teamcode.util.DriveConstants.Controller.kV;
+import static org.firstinspires.ftc.teamcode.util.DriveConstants.Drivetrain.Value.TELEOP_NORMAL;
+import static org.firstinspires.ftc.teamcode.util.DriveConstants.Drivetrain.Value.TELEOP_SLOWER;
+import static org.firstinspires.ftc.teamcode.util.DriveConstants.Drivetrain.Value.TRACK_WIDTH;
+import static org.firstinspires.ftc.teamcode.util.DriveConstants.Follower.HEADING_PID;
+import static org.firstinspires.ftc.teamcode.util.DriveConstants.Follower.INITIAL_POS_MAYBE;
+import static org.firstinspires.ftc.teamcode.util.DriveConstants.Follower.LATERAL_MULTIPLIER;
+import static org.firstinspires.ftc.teamcode.util.DriveConstants.Follower.OMEGA_WEIGHT;
+import static org.firstinspires.ftc.teamcode.util.DriveConstants.Follower.TIMEOUT;
+import static org.firstinspires.ftc.teamcode.util.DriveConstants.Follower.TRANSLATIONAL_PID;
+import static org.firstinspires.ftc.teamcode.util.DriveConstants.Follower.VX_WEIGHT;
+import static org.firstinspires.ftc.teamcode.util.DriveConstants.Follower.VY_WEIGHT;
+import static org.firstinspires.ftc.teamcode.util.DriveConstants.Imu.Hardware.ID;
+import static org.firstinspires.ftc.teamcode.util.DriveConstants.encoderTicksToInches;
+
 import androidx.annotation.NonNull;
 
-import com.acmerobotics.roadrunner.control.PIDCoefficients;
+import com.acmerobotics.dashboard.config.Config;
 import com.acmerobotics.roadrunner.drive.DriveSignal;
 import com.acmerobotics.roadrunner.drive.MecanumDrive;
 import com.acmerobotics.roadrunner.followers.HolonomicPIDVAFollower;
 import com.acmerobotics.roadrunner.followers.TrajectoryFollower;
 import com.acmerobotics.roadrunner.geometry.Pose2d;
-import com.acmerobotics.roadrunner.geometry.Vector2d;
-import com.acmerobotics.roadrunner.kinematics.MecanumKinematics;
 import com.acmerobotics.roadrunner.trajectory.Trajectory;
 import com.acmerobotics.roadrunner.trajectory.TrajectoryBuilder;
 import com.acmerobotics.roadrunner.trajectory.constraints.AngularVelocityConstraint;
@@ -18,215 +39,109 @@ import com.acmerobotics.roadrunner.trajectory.constraints.MinVelocityConstraint;
 import com.acmerobotics.roadrunner.trajectory.constraints.ProfileAccelerationConstraint;
 import com.acmerobotics.roadrunner.trajectory.constraints.TrajectoryAccelerationConstraint;
 import com.acmerobotics.roadrunner.trajectory.constraints.TrajectoryVelocityConstraint;
+import com.arcrobotics.ftclib.command.CommandScheduler;
+import com.arcrobotics.ftclib.command.Subsystem;
+import com.arcrobotics.ftclib.geometry.Vector2d;
+import com.arcrobotics.ftclib.hardware.motors.Motor;
 import com.qualcomm.hardware.bosch.BNO055IMU;
 import com.qualcomm.hardware.lynx.LynxModule;
-import com.qualcomm.robotcore.eventloop.opmode.OpMode;
-import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.DcMotorEx;
-import com.qualcomm.robotcore.hardware.DcMotorSimple;
+import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.PIDFCoefficients;
 import com.qualcomm.robotcore.hardware.VoltageSensor;
 import com.qualcomm.robotcore.hardware.configuration.typecontainers.MotorConfigurationType;
+
+import org.firstinspires.ftc.teamcode.util.DriveConstants;
 import org.firstinspires.ftc.teamcode.trajectorysequence.TrajectorySequence;
 import org.firstinspires.ftc.teamcode.trajectorysequence.TrajectorySequenceBuilder;
 import org.firstinspires.ftc.teamcode.trajectorysequence.TrajectorySequenceRunner;
-import org.firstinspires.ftc.teamcode.trajectorysequence.container.Pose2dContainer;
 import org.firstinspires.ftc.teamcode.util.AxisDirection;
 import org.firstinspires.ftc.teamcode.util.BNO055IMUUtil;
 import org.firstinspires.ftc.teamcode.util.LynxModuleUtil;
-import org.firstinspires.ftc.teamcode.util.StandardTrackingWheelLocalizer;
+import org.firstinspires.ftc.teamcode.util.MotorExEx;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import static org.firstinspires.ftc.teamcode.subsystem.Drive.Constants.*;
-
 /*
  * Simple mecanum drive hardware implementation for REV hardware.
  */
+@Config
+public class Drive extends MecanumDrive implements Subsystem {
 
-public class Drive extends MecanumDrive {
-    public static class Constants {
-        public static Drivetrain drivetrain;
-        public static class Drivetrain {
-            /**
-             * These are motor constants that should be listed online for your motors.
-             */
-            public static final double TICKS_PER_REV = 	384.5;
-            public static final double MAX_RPM = 435;
+    /** FTC Lib Subsystem stuff (this stuff is defined in SubsystemBase,
+     * but since we are already extending a class, we cant extend it
+     * we have to do this instead
+     */
 
-            /**
-             * These are physical constants that can be determined from your robot (including the track
-             * width; it will be tune empirically later although a rough estimate is important). Users are
-             * free to chose whichever linear distance unit they would like so long as it is consistently
-             * used. The default values were selected with inches in mind. Road runner uses radians for
-             * angular distances although most angular parameters are wrapped in Math.toRadians() for
-             * convenience. Make sure to exclude any gear ratio included in MOTOR_CONFIG from GEAR_RATIO.
-             */
-            public static final double WHEEL_RADIUS = 1.88976; // in
-            public static final double GEAR_RATIO = 1; // output (wheel) speed / input (motor) speed
-            public static volatile double TRACK_WIDTH = 10.8; // in
+    protected String m_name = this.getClass().getSimpleName();
 
-            public static volatile boolean IS_FIELD_CENTRIC = true;
-            public static volatile boolean USING_FINE_CONTROL = true;
-
-
-            /**
-             * Justin Note BTW:
-             * The Lateral Multiplier will be multiplied by the y value (strafing) of the drive
-             * train (I believe to account for imperfect strafing). It will do for autonomous
-             * only due to overriding set drive power method
-             */
-            public static volatile double LATERAL_MULTIPLIER = 1;
-
-            public static Speed speed;
-            public static class Speed {
-                public static volatile double VX_MULTIPLIER = 1.1;
-                public static volatile double VY_MULTIPLIER = 1;
-                public static volatile double OMEGA_MULTIPLIER = 1;
-
-                public static volatile double NORMAL_SPEED = 1;
-                public static volatile double FAST_SPEED = 0.5;
-                public static volatile double SLOW_SPEED = 0.3;
-            }
-            public static Direction direction;
-            public static class Direction {
-                public static volatile DcMotorSimple.Direction
-                        LEFT_FRONT = DcMotorSimple.Direction.REVERSE,
-                        LEFT_REAR = DcMotorSimple.Direction.FORWARD,
-                        RIGHT_FRONT = DcMotorSimple.Direction.FORWARD,
-                        RIGHT_REAR = DcMotorSimple.Direction.REVERSE;
-            }
-        }
-
-        public static Controller controller;
-        public static class Controller {
-            /**
-             * Set RUN_USING_ENCODER to true to enable built-in hub velocity control using drive encoders.
-             * Set this flag to false if drive encoders are not present and an alternative localization
-             * method is in use (e.g., tracking wheels).
-             *
-             * If using the built-in motor velocity PID, update MOTOR_VELO_PID with the tuned coefficients
-             * from DriveVelocityPIDTuner.
-             */
-            public static final boolean RUN_USING_BUILT_IN_CONTROLLER = false;
-            public static PIDFCoefficients MOTOR_VELO_PID = new PIDFCoefficients(0, 0, 0,
-                    getMotorVelocityF(Drivetrain.MAX_RPM / 60 * Drivetrain.TICKS_PER_REV));
-            /**
-             * These are the feedforward parameters used to model the drive motor behavior. If you are using
-             * the built-in velocity PID, *these values are fine as is*. However, if you do not have drive
-             * motor encoders or have elected not to use them for velocity control, these values should be
-             * empirically tuned.
-             */
-
-            // TODO: adjust kV and maybe kA depending on the battery voltage. (maybe kstatic also)
-            public static volatile double kV = 0.01;
-            public static volatile double kA = 0;
-            public static volatile double kStatic = 0;
-
-            /**
-             * <p>
-             * These values are used to generate the trajectories for you robot. To ensure proper operation,
-             * the constraints should never exceed ~80% of the robot's actual capabilities. While Road
-             * Runner is designed to enable faster autonomous motion, it is a good idea for testing to start
-             * small and gradually increase them later after everything is working. All distance units are
-             * inches.
-             * </p>
-             * <p>
-             * <b>Note from LearnRoadRunner.com:</b>
-             * </p>
-             * The velocity and acceleration constraints were calculated based on the following equation:<br>
-             * ((MAX_RPM / 60) * GEAR_RATIO * WHEEL_RADIUS * 2 * Math.PI) * 0.85<br>
-             * Resulting in 52.48291908330528 in/s.<br>
-             * </p>
-             * <p>
-             * This is only 85% of the theoretical maximum velocity of the bot, following the recommendation above.<br>
-             * This is capped at 85% because there are a number of variables that will prevent your bot from actually
-             * reaching this maximum velocity: voltage dropping over the game, bot weight, general mechanical inefficiencies, etc.
-             * However, you can push this higher yourself if you'd like. Perhaps raise it to 90-95% of the theoretically
-             * max velocity. The theoretically maximum velocity is 61.74461068624151 in/s.
-             * Just make sure that your bot can actually reach this maximum velocity. Path following will be detrimentally
-             * affected if it is aiming for a velocity not actually possible.
-             * </p>
-             * <p>
-             * The maximum acceleration is somewhat arbitrary and it is recommended that you tweak this yourself based on
-             * actual testing. Just set it at a reasonable value and keep increasing until your path following starts
-             * to degrade. As of now, it simply mirrors the velocity, resulting in 52.48291908330528 in/s/s
-             *
-             * Maximum Angular Velocity is calculated as: maximum velocity / trackWidth * (180 / Math.PI) but capped at 360°/s.
-             * You are free to raise this on your own if you would like. It is best determined through experimentation.
-             * </p>
-             */
-            public static volatile double MAX_VEL       = 50; // 85% of the max for this drive would be 52
-            public static volatile double MAX_ACCEL     = 50; // 60 is about as high as this should be
-            public static volatile double MAX_ANG_VEL   = Math.toRadians(180); // 242 is about 85% of what it could do
-            public static volatile double MAX_ANG_ACCEL = Math.toRadians(180); // do maybe 242 also idk
-        }
-
-        public static Follower follower;
-        public static class Follower {
-            public static PIDCoefficients TRANSLATIONAL_PID = new PIDCoefficients(8, 0, 0);
-            public static PIDCoefficients HEADING_PID = new PIDCoefficients(8, 0, 0);
-
-            public static Pose2dContainer ADMISSIBLE_ERROR = new Pose2dContainer(0.5, 0.5, 5.0);
-            public static volatile double TIMEOUT = 0.5;
-        }
-
-        public static double encoderTicksToInches(double ticks) {
-            return Drivetrain.WHEEL_RADIUS * 2 * Math.PI * Drivetrain.GEAR_RATIO * ticks / Drivetrain.TICKS_PER_REV;
-        }
-
-        public static double rpmToVelocity(double rpm) {
-            return rpm * Drivetrain.GEAR_RATIO * 2 * Math.PI * Drivetrain.WHEEL_RADIUS / 60.0;
-        }
-
-        public static double getMotorVelocityF(double ticksPerSecond) {
-            // see https://docs.google.com/document/d/1tyWrXDfMidwYyP_5H4mZyVgaEswhOC35gvdmP-V-5hA/edit#heading=h.61g9ixenznbx
-            return 32767 / ticksPerSecond;
-        }
-
+    public String getName() {
+        return m_name;
     }
-    private double speed = Drivetrain.Speed.NORMAL_SPEED;
+
+    public void setName(String name) {
+        m_name = name;
+    }
+
+    public String getSubsystem() {
+        return getName();
+    }
+
+    public void setSubsystem(String subsystem) {
+        setName(subsystem);
+    }
+
+    private double multiplier = 1;
+
+
 
     private final TrajectorySequenceRunner trajectorySequenceRunner;
 
-    private final TrajectoryVelocityConstraint VEL_CONSTRAINT = getVelocityConstraint(Controller.MAX_VEL, Controller.MAX_ANG_VEL, Drivetrain.TRACK_WIDTH);
-    private final TrajectoryAccelerationConstraint ACCEL_CONSTRAINT = getAccelerationConstraint(Controller.MAX_ACCEL);
+    private static final TrajectoryVelocityConstraint VEL_CONSTRAINT = getVelocityConstraint(MAX_VEL, MAX_ANG_VEL, TRACK_WIDTH);
+    private static final TrajectoryAccelerationConstraint ACCEL_CONSTRAINT = getAccelerationConstraint(MAX_ACCEL);
 
-    private final DcMotorEx leftFront, leftRear, rightRear, rightFront;
-    private final List<DcMotorEx> motors;
+    private final MotorExEx leftFront, leftRear, rightRear, rightFront;
+    private final List<MotorExEx> motors;
 
-    private BNO055IMU imu;
+    private final BNO055IMU imu;
     private final VoltageSensor batteryVoltageSensor;
-    private final OpMode opMode;
 
-    public Drive(OpMode opMode, boolean isUsingImu) {
-        super(Controller.kV, Controller.kA, Controller.kStatic, Drivetrain.TRACK_WIDTH, Drivetrain.TRACK_WIDTH, Drivetrain.LATERAL_MULTIPLIER);
+    private final LinearOpMode opMode;
+
+    public static double ENCODER_MULTIPLIER = 1; // Multiplier for drive encoders (might not be that necesary)
+
+    // This is to make an FtcLib mecanum drive
+//    com.arcrobotics.ftclib.drivebase.MecanumDrive controllerMecanumDrive;
+
+    public Drive(LinearOpMode opMode) {
+        super(kV, kA, kStatic, TRACK_WIDTH, TRACK_WIDTH, LATERAL_MULTIPLIER);
         this.opMode = opMode;
+        HardwareSubsystem.initializeConstants();
 
-        TrajectoryFollower follower = new HolonomicPIDVAFollower(Follower.TRANSLATIONAL_PID, Follower.TRANSLATIONAL_PID, Follower.HEADING_PID,
-                Follower.ADMISSIBLE_ERROR.getPose(), Follower.TIMEOUT);
+        CommandScheduler.getInstance().registerSubsystem(this);
+
+
+        TrajectoryFollower follower = new HolonomicPIDVAFollower(TRANSLATIONAL_PID, TRANSLATIONAL_PID, HEADING_PID,
+                INITIAL_POS_MAYBE, TIMEOUT);
 
         LynxModuleUtil.ensureMinimumFirmwareVersion(opMode.hardwareMap);
 
         batteryVoltageSensor = opMode.hardwareMap.voltageSensor.iterator().next();
 
-        // TODO: you may want to consider moving this
         for (LynxModule module : opMode.hardwareMap.getAll(LynxModule.class)) {
             module.setBulkCachingMode(LynxModule.BulkCachingMode.AUTO);
         }
 
-        // adjust the names of the following hardware devices to match your configuration
-        if(isUsingImu) {
-            imu = opMode.hardwareMap.get(BNO055IMU.class, "imu");
-            BNO055IMU.Parameters parameters = new BNO055IMU.Parameters();
-            parameters.angleUnit = BNO055IMU.AngleUnit.RADIANS;
-            imu.initialize(parameters);
-        }
+        // TODO: adjust the names of the following hardware devices to match your configuration
+        imu = opMode.hardwareMap.get(BNO055IMU.class, ID);
+        BNO055IMU.Parameters parameters = new BNO055IMU.Parameters();
+        //TODO: this will probably mess up roadrunner put it back to radians or maybe
+        // do math.toDegrees
+        parameters.angleUnit = BNO055IMU.AngleUnit.RADIANS;
+        imu.initialize(parameters);
 
-
-        // If the hub containing the IMU you are using is mounted so that the "REV" logo does
+        // TODO: If the hub containing the IMU you are using is mounted so that the "REV" logo does
         // not face up, remap the IMU axes so that the z-axis points upward (normal to the floor.)
         //
         //             | +Z axis
@@ -246,44 +161,54 @@ public class Drive extends MecanumDrive {
         // and the placement of the dot/orientation from https://docs.revrobotics.com/rev-control-system/control-system-overview/dimensions#imu-location
         //
         // For example, if +Y in this diagram faces downwards, you would use AxisDirection.NEG_Y.
-        // BNO055IMUUtil.remapZAxis(imu, AxisDirection.NEG_X);
+//         BNO055IMUUtil.remapZAxis(imu, AxisDirection.NEG_Y);
 
-        leftFront = opMode.hardwareMap.get(DcMotorEx.class, "leftFront");
-        leftRear = opMode.hardwareMap.get(DcMotorEx.class, "leftRear");
-        rightRear = opMode.hardwareMap.get(DcMotorEx.class, "rightRear");
-        rightFront = opMode.hardwareMap.get(DcMotorEx.class, "rightFront");
+        leftFront = new MotorExEx(opMode.hardwareMap, DriveConstants.Drivetrain.LeftFront.hardware.ID, DriveConstants.Drivetrain.Value.TICKS_PER_REV, DriveConstants.Drivetrain.Value.MAX_RPM);
+        leftRear = new MotorExEx(opMode.hardwareMap, DriveConstants.Drivetrain.LeftRear.hardware.ID, DriveConstants.Drivetrain.Value.TICKS_PER_REV, DriveConstants.Drivetrain.Value.MAX_RPM);
+        rightFront = new MotorExEx(opMode.hardwareMap, DriveConstants.Drivetrain.RightFront.hardware.ID, DriveConstants.Drivetrain.Value.TICKS_PER_REV, DriveConstants.Drivetrain.Value.MAX_RPM);
+        rightRear = new MotorExEx(opMode.hardwareMap, DriveConstants.Drivetrain.RightRear.hardware.ID, DriveConstants.Drivetrain.Value.TICKS_PER_REV, DriveConstants.Drivetrain.Value.MAX_RPM);
+
 
         motors = Arrays.asList(leftFront, leftRear, rightRear, rightFront);
 
-        for (DcMotorEx motor : motors) {
-            MotorConfigurationType motorConfigurationType = motor.getMotorType().clone();
-            motorConfigurationType.setAchieveableMaxRPMFraction(1.0);
-            motor.setMotorType(motorConfigurationType);
+
+        setAchieveableMaxRPMFraction(1);
+
+        if (RUN_USING_BUILT_IN_CONTROLLER) {
+            setMode(Motor.RunMode.VelocityControl);
         }
 
-        if (Controller.RUN_USING_BUILT_IN_CONTROLLER) {
-            setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        setZeroPowerBehavior(Motor.ZeroPowerBehavior.BRAKE);
+
+        if (RUN_USING_BUILT_IN_CONTROLLER && MOTOR_VELO_PID != null) {
+            setPIDFCoefficients(Motor.RunMode.VelocityControl, MOTOR_VELO_PID);
         }
 
-        setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        // TODO: reverse any motors using DcMotor.setDirection()
+        leftFront.setInverted(DriveConstants.Drivetrain.LeftFront.hardware.REVERSED);
+        leftRear.setInverted(DriveConstants.Drivetrain.LeftRear.hardware.REVERSED);
+        rightFront.setInverted(DriveConstants.Drivetrain.RightFront.hardware.REVERSED);
+        rightRear.setInverted(DriveConstants.Drivetrain.RightRear.hardware.REVERSED);
 
-        if (Controller.RUN_USING_BUILT_IN_CONTROLLER && Controller.MOTOR_VELO_PID != null) {
-            setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER, Controller.MOTOR_VELO_PID);
-        }
+//        leftFront.setDirection(DcMotorSimple.Direction.REVERSE);
+//        leftRear.setDirection(DcMotorSimple.Direction.REVERSE);
+//        rightFront.setDirection(DcMotorSimple.Direction.FORWARD);
+//        rightRear.setDirection(DcMotorSimple.Direction.FORWARD);
 
-        leftFront.setDirection(Drivetrain.Direction.LEFT_FRONT);
-        rightFront.setDirection(Drivetrain.Direction.RIGHT_FRONT);
-        rightRear.setDirection(Drivetrain.Direction.RIGHT_REAR);
-        leftRear.setDirection(Drivetrain.Direction.LEFT_REAR);
+        // This is to give our ftc MecanumDrive a value
+        // we do this after inverting the motors
+//        controllerMecanumDrive = new com.arcrobotics.ftclib.drivebase.MecanumDrive(true,
+//                leftFront,
+//                leftRear,
+//                rightFront,
+//                rightRear
+//        );
 
-        // if desired, use setLocalizer() to change the localization method
+        // TODO: if desired, use setLocalizer() to change the localization method
         // for instance, setLocalizer(new ThreeTrackingWheelLocalizer(...));
-        setLocalizer(new StandardTrackingWheelLocalizer(opMode.hardwareMap));
+//        setLocalizer(new TwoWheelTrackingLocalizer(opMode.hardwareMap, this));
 
-        trajectorySequenceRunner = new TrajectorySequenceRunner(follower, Follower.HEADING_PID);
-    }
-    public Drive (OpMode opMode) {
-        this(opMode,false);
+        trajectorySequenceRunner = new TrajectorySequenceRunner(follower, HEADING_PID);
     }
 
     public TrajectoryBuilder trajectoryBuilder(Pose2d startPose) {
@@ -302,7 +227,9 @@ public class Drive extends MecanumDrive {
         return new TrajectorySequenceBuilder(
                 startPose,
                 VEL_CONSTRAINT, ACCEL_CONSTRAINT,
-                Controller.MAX_ANG_VEL, Controller.MAX_ANG_ACCEL
+                MAX_ANG_VEL, MAX_ANG_ACCEL,
+                opMode
+
         );
     }
 
@@ -341,10 +268,6 @@ public class Drive extends MecanumDrive {
         waitForIdle();
     }
 
-    public void breakFollowing() {
-        trajectorySequenceRunner.breakFollowing();
-    }
-
     public Pose2d getLastError() {
         return trajectorySequenceRunner.getLastPoseError();
     }
@@ -364,83 +287,61 @@ public class Drive extends MecanumDrive {
         return trajectorySequenceRunner.isBusy();
     }
 
-    public void setMode(DcMotor.RunMode runMode) {
-        for (DcMotorEx motor : motors) {
-            motor.setMode(runMode);
+    public void setMode(Motor.RunMode runMode) {
+        for (MotorExEx motor : motors) {
+            motor.setRunMode(runMode);
         }
     }
 
-    public void setZeroPowerBehavior(DcMotor.ZeroPowerBehavior zeroPowerBehavior) {
-        for (DcMotorEx motor : motors) {
+    public void setZeroPowerBehavior(Motor.ZeroPowerBehavior zeroPowerBehavior) {
+        for (MotorExEx motor : motors) {
             motor.setZeroPowerBehavior(zeroPowerBehavior);
         }
     }
 
-    public void setPIDFCoefficients(DcMotor.RunMode runMode, PIDFCoefficients coefficients) {
+    public void setPIDFCoefficients(Motor.RunMode runMode, PIDFCoefficients coefficients) {
         PIDFCoefficients compensatedCoefficients = new PIDFCoefficients(
                 coefficients.p, coefficients.i, coefficients.d,
                 coefficients.f * 12 / batteryVoltageSensor.getVoltage()
         );
 
-        for (DcMotorEx motor : motors) {
-            motor.setPIDFCoefficients(runMode, compensatedCoefficients);
+        for (MotorExEx motor : motors) {
+            switch (runMode){
+                case VelocityControl: motor.setVeloCoefficients(compensatedCoefficients);
+                case PositionControl: motor.setPositionCoefficients(compensatedCoefficients);
+                default: return;
+            }
+
+//            motor.setPIDFCoefficients(runMode, compensatedCoefficients);
         }
     }
 
-    /**
-     * This method was overridden by Justin
-     * It is almost identical, but the y value (strafing) is not multiplied by the lateral multiplier.
-     *
-     * The lateral multiplier can instead be used for Trajectory following to account for imperfect
-     * strafing, and the VY weight can be used for manually powering motors for the same purpose
-     */
-    @Override
-    public void setDrivePower(@NonNull Pose2d drivePower) {
-        double x = drivePower.getX(); // Forward and back
-        double y = drivePower.getY(); // Strafe
-        double heading = drivePower.getHeading(); // Heading
-        double[] powers = {
-                x - y - heading,
-                x + y - heading,
-                x - y + heading,
-                x + y + heading
-        };
-        setMotorPowers(powers[0], powers[1], powers[2], powers[3]);
-    }
-
-    /**
-     * This method has been modified by Justin
-     * In Stock RoadRunner, this method does not make use of VX, VY, and OMEGA weights unless
-     * the total of x, y, and heading was greater than 1. This has been modified to always
-     * make use of these weights
-     */
     public void setWeightedDrivePower(Pose2d drivePower) {
-        // re-normalize the powers according to the weights
-        double x = Drivetrain.Speed.VX_MULTIPLIER * drivePower.getX(); // forward/back
-        double y = Drivetrain.Speed.VY_MULTIPLIER * drivePower.getY(); // strafe
-        double heading = Drivetrain.Speed.OMEGA_MULTIPLIER * drivePower.getHeading(); // turn
+        Pose2d vel = drivePower;
 
-        // Apply re-normalized weights
-        drivePower = new Pose2d(x, y , heading);
+        if (Math.abs(drivePower.getX()) + Math.abs(drivePower.getY())
+                + Math.abs(drivePower.getHeading()) > 1) {
+            // re-normalize the powers according to the weights
+            double denom = VX_WEIGHT * Math.abs(drivePower.getX())
+                    + VY_WEIGHT * Math.abs(drivePower.getY())
+                    + OMEGA_WEIGHT * Math.abs(drivePower.getHeading());
 
-        // (from gm0)
-        // Denominator is the largest motor power (absolute value) or 1
-        // This ensures all the powers maintain the same ratio, but only when
-        // at least one is out of the range [-1, 1]
-        double denominator = Math.max(Math.abs(y) + Math.abs(x) + Math.abs(heading), 1);
+            vel = new Pose2d(
+                    VX_WEIGHT * drivePower.getX(),
+                    VY_WEIGHT * drivePower.getY(),
+                    OMEGA_WEIGHT * drivePower.getHeading()
+            ).div(denom);
+        }
 
-        drivePower = drivePower.div(denominator);
-
-        setDrivePower(drivePower.times(speed)); // incorporate speed
+        setDrivePower(vel);
     }
-
 
     @NonNull
     @Override
-    public List<Double> getWheelPositions() {
+    public List<Double> getWheelPositions() { // left front, left rear, right front, right rear
         List<Double> wheelPositions = new ArrayList<>();
-        for (DcMotorEx motor : motors) {
-            wheelPositions.add(encoderTicksToInches(motor.getCurrentPosition()));
+        for (MotorExEx motor : motors) {
+            wheelPositions.add(encoderTicksToInches(motor.getCurrentPosition()) * ENCODER_MULTIPLIER);
         }
         return wheelPositions;
     }
@@ -448,18 +349,18 @@ public class Drive extends MecanumDrive {
     @Override
     public List<Double> getWheelVelocities() {
         List<Double> wheelVelocities = new ArrayList<>();
-        for (DcMotorEx motor : motors) {
-            wheelVelocities.add(encoderTicksToInches(motor.getVelocity()));
+        for (MotorExEx motor : motors) {
+            wheelVelocities.add(encoderTicksToInches(motor.getVelocity()) * ENCODER_MULTIPLIER);
         }
         return wheelVelocities;
     }
 
     @Override
     public void setMotorPowers(double v, double v1, double v2, double v3) {
-        leftFront.setPower(v);
-        leftRear.setPower(v1);
-        rightRear.setPower(v2);
-        rightFront.setPower(v3);
+        leftFront.set(v);
+        leftRear.set(v1);
+        rightRear.set(v2);
+        rightFront.set(v3);
     }
 
     @Override
@@ -467,15 +368,14 @@ public class Drive extends MecanumDrive {
         return imu.getAngularOrientation().firstAngle;
     }
 
-    @Override
-    public Double getExternalHeadingVelocity() {
-        return (double) imu.getAngularVelocity().xRotationRate;
-    }
-
     public void resetImu() {
         imu.initialize(new BNO055IMU.Parameters());
     }
 
+    @Override
+    public Double getExternalHeadingVelocity() {
+        return (double) imu.getAngularVelocity().xRotationRate;
+    }
 
     public static TrajectoryVelocityConstraint getVelocityConstraint(double maxVel, double maxAngularVel, double trackWidth) {
         return new MinVelocityConstraint(Arrays.asList(
@@ -488,68 +388,125 @@ public class Drive extends MecanumDrive {
         return new ProfileAccelerationConstraint(maxAccel);
     }
 
-    /**
-     * Square magnitude of number while keeping the sign.
-     */
-    private double squareInput(double input) {
-        return input * Math.abs(input);
+    public void driveFieldCentric(double strafeSpeed, double forwardSpeed,
+                                  double turnSpeed, double gyroAngle) {
+        strafeSpeed = clipRange(strafeSpeed);
+        forwardSpeed = clipRange(forwardSpeed);
+        turnSpeed = clipRange(turnSpeed);
+
+        Vector2d input = new Vector2d(strafeSpeed, forwardSpeed);
+        input = input.rotateBy(-gyroAngle);
+
+        double theta = input.angle();
+
+        double[] wheelSpeeds = new double[4];
+        wheelSpeeds[0] = Math.sin(theta + Math.PI / 4);
+        wheelSpeeds[1] = Math.sin(theta - Math.PI / 4);
+        wheelSpeeds[2] = Math.sin(theta - Math.PI / 4);
+        wheelSpeeds[3] = Math.sin(theta + Math.PI / 4);
+
+        normalize(wheelSpeeds, input.magnitude());
+
+        wheelSpeeds[0] += turnSpeed;
+        wheelSpeeds[1] -= turnSpeed;
+        wheelSpeeds[2] += turnSpeed;
+        wheelSpeeds[3] -= turnSpeed;
+
+        normalize(wheelSpeeds);
+
+        leftFront
+                .set(wheelSpeeds[0]);
+        rightFront
+                .set(wheelSpeeds[1]);
+        leftRear
+                .set(wheelSpeeds[2]);
+        rightRear
+                .set(wheelSpeeds[3]);
+    }
+    public void setAchieveableMaxRPMFraction (double fraction) {
+        for (MotorExEx motor : motors) {
+            MotorConfigurationType motorConfigurationType = motor.getMotorType().clone();
+            motorConfigurationType.setAchieveableMaxRPMFraction(fraction);
+            motor.setMotorType(motorConfigurationType);
+        }
     }
 
-    /**
-     *
-     *
-     * @param gyroAngle angle the bot is currently facing relative to start (radians)
-     */
-    public void driveFieldCentric(double strafeSpeed, double forwardSpeed, double turnSpeed, double gyroAngle) {
-        Vector2d input = new Vector2d(
-                strafeSpeed,
-                forwardSpeed
-        ).rotated(gyroAngle);
-
-        driveRobotCentric(
-                input.getX(),
-                input.getY(),
-                turnSpeed
-        );
-    }
-
-    private void driveRobotCentric(double strafeSpeed, double forwardSpeed, double turnSpeed) {
+    public void driveRobotCentric(double x, double y, double rotate, boolean fineControl) {
+//        controllerMecanumDrive.driveRobotCentric(x, y, rotate, fineControl);
         setWeightedDrivePower(
                 new Pose2d(
-                        forwardSpeed,
-                        -strafeSpeed,
-                        -turnSpeed
+                        (y),
+                        (-x),
+                        (-rotate)
                 )
         );
+
     }
 
-    public void runIteratively() {
-        double strafeSpeed;
-        double forwardSpeed;
-        double turnSpeed;
+    public void drive(double x, double y, double rotate, boolean fineControl, boolean fieldCentric) {
+        x = x * multiplier;
+        y = y * multiplier;
+        rotate = rotate * multiplier;
+        if (fieldCentric) driveFieldCentric(x, y, rotate, Math.toDegrees(getRawExternalHeading()));
+        else driveRobotCentric(x, y, rotate, fineControl);
+    }
 
+    public void setSlow() {
+        multiplier = TELEOP_SLOWER;
+//        motors.get(0).set
+//        controllerMecanumDrive.setMaxSpeed(DriveConstants.Drivetrain.Value.TELEOP_SLOW);
+    }
 
-        if (Drivetrain.USING_FINE_CONTROL) {
-            strafeSpeed = squareInput(opMode.gamepad1.left_stick_x);
-            forwardSpeed = squareInput(-opMode.gamepad1.left_stick_y);
-            turnSpeed = squareInput(opMode.gamepad1.right_stick_x);
-        } else {
-            strafeSpeed = opMode.gamepad1.left_stick_x;
-            forwardSpeed = -opMode.gamepad1.left_stick_y;
-            turnSpeed = opMode.gamepad1.right_stick_x;
+    public void setTurbo() {
+        setAchieveableMaxRPMFraction(DriveConstants.Drivetrain.Value.TELEOP_SLOW);
+//        controllerMecanumDrive.setMaxSpeed(DriveConstants.Drivetrain.Value.TELEOP_TURBO);
+    }
+
+    public void setNormal() {
+        multiplier = TELEOP_NORMAL;
+//        controllerMecanumDrive.setMaxSpeed(DriveConstants.Drivetrain.Value.TELEOP_NORMAL);
+    }
+
+    public void initTelemetry() {
+
+    }
+    public void periodicTelemetry() {
+        opMode.telemetry.addData("Drive", "Field centric: " + (DriveConstants.Drivetrain.Value.FIELD_CENTRIC ? "on" : "off"), "Fine Control: " + (DriveConstants.Drivetrain.Value.FINE_CONTROL ? "on" : "off"));
+    }
+
+    public double clipRange(double value) {
+        return value <= -1 ? -1
+                : value >= 1 ? 1
+                : value;
+    }
+
+    protected void normalize(double[] wheelSpeeds, double magnitude) {
+        double maxMagnitude = Math.abs(wheelSpeeds[0]);
+        for (int i = 1; i < wheelSpeeds.length; i++) {
+            double temp = Math.abs(wheelSpeeds[i]);
+            if (maxMagnitude < temp) {
+                maxMagnitude = temp;
+            }
+        }
+        for (int i = 0; i < wheelSpeeds.length; i++) {
+            wheelSpeeds[i] = (wheelSpeeds[i] / maxMagnitude) * magnitude;
         }
 
-        if (opMode.gamepad1.left_bumper) speed = Drivetrain.Speed.SLOW_SPEED;
-        else if (opMode.gamepad1.right_bumper) speed = Drivetrain.Speed.FAST_SPEED;
-        else speed = Drivetrain.Speed.NORMAL_SPEED;
+    }
 
-        if (opMode.gamepad1.a) resetImu();
-
-
-        if (Drivetrain.IS_FIELD_CENTRIC)
-            driveFieldCentric(strafeSpeed, forwardSpeed, turnSpeed, -getRawExternalHeading());
-        else
-            driveRobotCentric(strafeSpeed, forwardSpeed, turnSpeed);
+    protected void normalize(double[] wheelSpeeds) {
+        double maxMagnitude = Math.abs(wheelSpeeds[0]);
+        for (int i = 1; i < wheelSpeeds.length; i++) {
+            double temp = Math.abs(wheelSpeeds[i]);
+            if (maxMagnitude < temp) {
+                maxMagnitude = temp;
+            }
+        }
+        if (maxMagnitude > 1) {
+            for (int i = 0; i < wheelSpeeds.length; i++) {
+                wheelSpeeds[i] = (wheelSpeeds[i] / maxMagnitude);
+            }
+        }
 
     }
 }

@@ -11,22 +11,18 @@ import com.acmerobotics.roadrunner.trajectory.DisplacementProducer;
 import com.acmerobotics.roadrunner.trajectory.MarkerCallback;
 import com.acmerobotics.roadrunner.trajectory.SpatialMarker;
 import com.acmerobotics.roadrunner.trajectory.TemporalMarker;
-import com.acmerobotics.roadrunner.trajectory.TimeProducer;
 import com.acmerobotics.roadrunner.trajectory.Trajectory;
+import com.acmerobotics.roadrunner.trajectory.TimeProducer;
 import com.acmerobotics.roadrunner.trajectory.TrajectoryBuilder;
 import com.acmerobotics.roadrunner.trajectory.TrajectoryMarker;
 import com.acmerobotics.roadrunner.trajectory.constraints.TrajectoryAccelerationConstraint;
 import com.acmerobotics.roadrunner.trajectory.constraints.TrajectoryVelocityConstraint;
 import com.acmerobotics.roadrunner.util.Angle;
+import com.arcrobotics.ftclib.command.SequentialCommandGroup;
+import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
+import com.qualcomm.robotcore.util.ElapsedTime;
 
-import org.firstinspires.ftc.teamcode.trajectorysequence.container.LineTo;
-import org.firstinspires.ftc.teamcode.trajectorysequence.container.LineToConstantHeading;
-import org.firstinspires.ftc.teamcode.trajectorysequence.container.LineToLinearHeading;
-import org.firstinspires.ftc.teamcode.trajectorysequence.container.LineToSplineHeading;
-import org.firstinspires.ftc.teamcode.trajectorysequence.container.SplineTo;
-import org.firstinspires.ftc.teamcode.trajectorysequence.container.SplineToConstantHeading;
-import org.firstinspires.ftc.teamcode.trajectorysequence.container.SplineToLinearHeading;
-import org.firstinspires.ftc.teamcode.trajectorysequence.container.SplineToSplineHeading;
+import org.firstinspires.ftc.teamcode.trajectorysequence.TrajectorySequence;
 import org.firstinspires.ftc.teamcode.trajectorysequence.sequencesegment.SequenceSegment;
 import org.firstinspires.ftc.teamcode.trajectorysequence.sequencesegment.TrajectorySegment;
 import org.firstinspires.ftc.teamcode.trajectorysequence.sequencesegment.TurnSegment;
@@ -35,6 +31,7 @@ import org.firstinspires.ftc.teamcode.trajectorysequence.sequencesegment.WaitSeg
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.BooleanSupplier;
 
 public class TrajectorySequenceBuilder {
     private final double resolution = 0.25;
@@ -72,13 +69,18 @@ public class TrajectorySequenceBuilder {
     private double lastDurationTraj;
     private double lastDisplacementTraj;
 
+
+    // Justin addded
+    private LinearOpMode opMode;
+
     public TrajectorySequenceBuilder(
             Pose2d startPose,
             Double startTangent,
             TrajectoryVelocityConstraint baseVelConstraint,
             TrajectoryAccelerationConstraint baseAccelConstraint,
             double baseTurnConstraintMaxAngVel,
-            double baseTurnConstraintMaxAngAccel
+            double baseTurnConstraintMaxAngAccel,
+            LinearOpMode opMode
     ) {
         this.baseVelConstraint = baseVelConstraint;
         this.baseAccelConstraint = baseAccelConstraint;
@@ -91,6 +93,8 @@ public class TrajectorySequenceBuilder {
 
         this.currentTurnConstraintMaxAngVel = baseTurnConstraintMaxAngVel;
         this.currentTurnConstraintMaxAngAccel = baseTurnConstraintMaxAngAccel;
+
+        this.opMode = opMode;
 
         sequenceSegments = new ArrayList<>();
 
@@ -119,12 +123,14 @@ public class TrajectorySequenceBuilder {
             TrajectoryVelocityConstraint baseVelConstraint,
             TrajectoryAccelerationConstraint baseAccelConstraint,
             double baseTurnConstraintMaxAngVel,
-            double baseTurnConstraintMaxAngAccel
+            double baseTurnConstraintMaxAngAccel,
+            LinearOpMode opMode
     ) {
         this(
                 startPose, null,
                 baseVelConstraint, baseAccelConstraint,
-                baseTurnConstraintMaxAngVel, baseTurnConstraintMaxAngAccel
+                baseTurnConstraintMaxAngVel, baseTurnConstraintMaxAngAccel,
+                opMode
         );
     }
 
@@ -287,191 +293,6 @@ public class TrajectorySequenceBuilder {
     ) {
         return addPath(() -> currentTrajectoryBuilder.splineToSplineHeading(endPose, endHeading, velConstraint, accelConstraint));
     }
-    /**
-     * JUSTIN ADDED LineTos
-     *
-     *
-     *
-     *
-     * */
-
-    public TrajectorySequenceBuilder lineTo(LineTo lineTo) {
-        return lineTo(new Vector2d(lineTo.x, lineTo.y));
-    }
-
-    public TrajectorySequenceBuilder lineTo(
-            LineTo lineTo,
-            TrajectoryVelocityConstraint velConstraint,
-            TrajectoryAccelerationConstraint accelConstraint
-    ) {
-        return lineTo(
-                new Vector2d(lineTo.x, lineTo.y),
-                velConstraint,
-                accelConstraint);
-    }
-
-    public TrajectorySequenceBuilder lineToConstantHeading(LineToConstantHeading lineToConstantHeading) {
-        return lineToConstantHeading(new Vector2d(lineToConstantHeading.x, lineToConstantHeading.y));
-    }
-
-    public TrajectorySequenceBuilder lineToConstantHeading(
-            LineToConstantHeading lineToConstantHeading,
-            TrajectoryVelocityConstraint velConstraint,
-            TrajectoryAccelerationConstraint accelConstraint
-    ) {
-        return lineToConstantHeading(
-                new Vector2d(lineToConstantHeading.x, lineToConstantHeading.y),
-                velConstraint,
-                accelConstraint);
-    }
-
-    public TrajectorySequenceBuilder lineToLinearHeading(LineToLinearHeading lineToLinearHeading) {
-        return lineToLinearHeading(new Pose2d(
-                lineToLinearHeading.x,
-                lineToLinearHeading.y,
-                Math.toRadians(lineToLinearHeading.heading)
-        ));
-    }
-
-    public TrajectorySequenceBuilder lineToLinearHeading(
-            LineToLinearHeading lineToLinearHeading,
-            TrajectoryVelocityConstraint velConstraint,
-            TrajectoryAccelerationConstraint accelConstraint
-    ) {
-        return lineToLinearHeading(
-                new Pose2d(
-                        lineToLinearHeading.x,
-                        lineToLinearHeading.y,
-                        Math.toRadians(lineToLinearHeading.heading)
-                ),
-                velConstraint,
-                accelConstraint);
-    }
-
-    public TrajectorySequenceBuilder lineToSplineHeading(LineToSplineHeading lineToSplineHeading) {
-        return lineToSplineHeading(new Pose2d(
-                lineToSplineHeading.x,
-                lineToSplineHeading.y,
-                Math.toRadians(lineToSplineHeading.heading)
-        ));
-    }
-
-    public TrajectorySequenceBuilder lineToSplineHeading(
-            LineToSplineHeading lineToSplineHeading,
-            TrajectoryVelocityConstraint velConstraint,
-            TrajectoryAccelerationConstraint accelConstraint
-    ) {
-        return lineToSplineHeading(
-                new Pose2d(
-                        lineToSplineHeading.x,
-                        lineToSplineHeading.y,
-                        Math.toRadians(lineToSplineHeading.heading)
-                ),
-                velConstraint,
-                accelConstraint);
-    }
-
-    /**
-     * JUSTIN ADDED SplineTos
-     *
-     *
-     *
-     *
-     * */
-
-    public TrajectorySequenceBuilder splineTo(SplineTo splineTo) {
-        return splineTo(
-                new Vector2d(splineTo.x, splineTo.y),
-                Math.toRadians(splineTo.endHeading));
-    }
-
-    public TrajectorySequenceBuilder splineTo(
-            SplineTo splineTo,
-            TrajectoryVelocityConstraint velConstraint,
-            TrajectoryAccelerationConstraint accelConstraint
-    ) {
-        return splineTo(
-                new Vector2d(splineTo.x, splineTo.y),
-                Math.toRadians(splineTo.endHeading),
-                velConstraint,
-                accelConstraint);
-    }
-
-    public TrajectorySequenceBuilder splineToConstantHeading(SplineToConstantHeading splineToConstantHeading) {
-        return splineToConstantHeading(
-                new Vector2d(splineToConstantHeading.x, splineToConstantHeading.y),
-                Math.toRadians(splineToConstantHeading.endHeading));
-    }
-
-    public TrajectorySequenceBuilder splineToConstantHeading(
-            SplineToConstantHeading splineToConstantHeading,
-            TrajectoryVelocityConstraint velConstraint,
-            TrajectoryAccelerationConstraint accelConstraint
-    ) {
-        return splineToConstantHeading(
-                new Vector2d(splineToConstantHeading.x, splineToConstantHeading.y),
-                Math.toRadians(splineToConstantHeading.endHeading),
-                velConstraint,
-                accelConstraint);
-    }
-
-    public TrajectorySequenceBuilder splineToLinearHeading(SplineToLinearHeading splineToLinearHeading) {
-        return splineToLinearHeading(
-                new Pose2d(
-                        splineToLinearHeading.x,
-                        splineToLinearHeading.y,
-                        Math.toRadians(splineToLinearHeading.heading)
-                ),
-                Math.toRadians(splineToLinearHeading.endHeading));
-    }
-
-    public TrajectorySequenceBuilder splineToLinearHeading(
-            SplineToLinearHeading splineToLinearHeading,
-            TrajectoryVelocityConstraint velConstraint,
-            TrajectoryAccelerationConstraint accelConstraint
-    ) {
-        return splineToLinearHeading(
-                new Pose2d(
-                        splineToLinearHeading.x,
-                        splineToLinearHeading.y,
-                        Math.toRadians(splineToLinearHeading.heading)
-                ),
-                Math.toRadians(splineToLinearHeading.endHeading),
-                velConstraint,
-                accelConstraint);
-    }
-
-    public TrajectorySequenceBuilder splineToSplineHeading(SplineToSplineHeading splineToSplineHeading) {
-        return splineToSplineHeading(
-                new Pose2d(
-                        splineToSplineHeading.x,
-                        splineToSplineHeading.y,
-                        Math.toRadians(splineToSplineHeading.heading)
-                ),
-                Math.toRadians(splineToSplineHeading.endHeading));
-    }
-
-    public TrajectorySequenceBuilder splineToSplineHeading(
-            SplineToSplineHeading splineToSplineHeading,
-            TrajectoryVelocityConstraint velConstraint,
-            TrajectoryAccelerationConstraint accelConstraint
-    ) {
-        return splineToSplineHeading(
-                new Pose2d(
-                        splineToSplineHeading.x,
-                        splineToSplineHeading.y,
-                        Math.toRadians(splineToSplineHeading.heading)
-                ),
-                Math.toRadians(splineToSplineHeading.endHeading),
-                velConstraint,
-                accelConstraint);
-    }
-
-    /**
-     * END OF JUSTIN ADDED CRAP
-     *
-     *
-     */
 
     private TrajectorySequenceBuilder addPath(AddPathCallback callback) {
         if (currentTrajectoryBuilder == null) newPath();
@@ -605,6 +426,49 @@ public class TrajectorySequenceBuilder {
         return this.addDisplacementMarker(currentDisplacement, callback);
     }
 
+    public TrajectorySequenceBuilder run(MarkerCallback callback) {
+        return this.addDisplacementMarker(currentDisplacement, callback);
+    }
+
+    public TrajectorySequenceBuilder runThread(BooleanSupplier stopIsRequested, Runnable runnable) {
+        MarkerCallback callback = () -> new Thread(() -> {
+            if (stopIsRequested.getAsBoolean()) return;
+            runnable.run();
+        }).start();
+
+        return this.addDisplacementMarker(currentDisplacement, callback);
+    }
+
+    public TrajectorySequenceBuilder runCommandGroupAsThread(SequentialCommandGroup sequentialCommandGroup) {
+        MarkerCallback callback = () -> new Thread(() -> {
+            if (!opMode.isStopRequested()) sequentialCommandGroup.initialize();
+
+            while (!opMode.isStopRequested() && !sequentialCommandGroup.isFinished()) {
+                sequentialCommandGroup.execute();
+            }
+        }).start();
+
+        return this.addDisplacementMarker(currentDisplacement, callback);
+    }
+
+    public TrajectorySequenceBuilder runCommandGroupAsThread(SequentialCommandGroup sequentialCommandGroup, double seconds, Runnable stopCommand) {
+        MarkerCallback callback = () -> new Thread(() -> {
+            ElapsedTime elapsedTime = new ElapsedTime();
+            double targetTime = elapsedTime.seconds() + seconds;
+            while (targetTime > elapsedTime.seconds()) {
+                if (!opMode.isStopRequested()) sequentialCommandGroup.initialize();
+
+                while (!opMode.isStopRequested() && !sequentialCommandGroup.isFinished()) {
+                    sequentialCommandGroup.execute();
+                }
+            }
+            stopCommand.run();
+        }).start();
+
+        return this.addDisplacementMarker(currentDisplacement, callback);
+    }
+
+
     public TrajectorySequenceBuilder UNSTABLE_addDisplacementMarkerOffset(double offset, MarkerCallback callback) {
         return this.addDisplacementMarker(currentDisplacement + offset, callback);
     }
@@ -623,22 +487,6 @@ public class TrajectorySequenceBuilder {
         return this;
     }
 
-    public TrajectorySequenceBuilder run(MarkerCallback callback) {
-        return this.addDisplacementMarker(callback);
-    }
-
-    public TrajectorySequenceBuilder run(double displacement, MarkerCallback callback) {
-        return this.addDisplacementMarker(displacement, callback);
-    }
-
-    public TrajectorySequenceBuilder run(double scale, double offset, MarkerCallback callback) {
-        return this.addDisplacementMarker(scale, offset, callback);
-    }
-
-    public TrajectorySequenceBuilder run(DisplacementProducer displacement, MarkerCallback callback) {
-        return this.addDisplacementMarker(displacement, callback);
-    }
-
     public TrajectorySequenceBuilder turn(double angle) {
         return turn(angle, currentTurnConstraintMaxAngVel, currentTurnConstraintMaxAngAccel);
     }
@@ -649,6 +497,32 @@ public class TrajectorySequenceBuilder {
         MotionProfile turnProfile = MotionProfileGenerator.generateSimpleMotionProfile(
                 new MotionState(lastPose.getHeading(), 0.0, 0.0, 0.0),
                 new MotionState(lastPose.getHeading() + angle, 0.0, 0.0, 0.0),
+                maxAngVel,
+                maxAngAccel
+        );
+
+        sequenceSegments.add(new TurnSegment(lastPose, angle, turnProfile, Collections.emptyList()));
+
+        lastPose = new Pose2d(
+                lastPose.getX(), lastPose.getY(),
+                Angle.norm(lastPose.getHeading() + angle)
+        );
+
+        currentDuration += turnProfile.duration();
+
+        return this;
+    }
+
+    public TrajectorySequenceBuilder turnTo(double angle) {
+        return turnTo(angle, currentTurnConstraintMaxAngVel, currentTurnConstraintMaxAngAccel);
+    }
+
+    public TrajectorySequenceBuilder turnTo(double angle, double maxAngVel, double maxAngAccel) {
+        pushPath();
+
+        MotionProfile turnProfile = MotionProfileGenerator.generateSimpleMotionProfile(
+                new MotionState(lastPose.getHeading(), 0.0, 0.0, 0.0),
+                new MotionState(angle, 0.0, 0.0, 0.0),
                 maxAngVel,
                 maxAngAccel
         );

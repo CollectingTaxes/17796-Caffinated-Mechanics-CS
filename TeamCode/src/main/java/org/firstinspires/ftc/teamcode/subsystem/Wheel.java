@@ -1,60 +1,52 @@
 package org.firstinspires.ftc.teamcode.subsystem;
 
-import androidx.annotation.NonNull;
+import static org.firstinspires.ftc.teamcode.subsystem.Wheel.WheelConstants.*;
 
+import com.arcrobotics.ftclib.hardware.ServoEx;
+import com.arcrobotics.ftclib.hardware.SimpleServo;
+import com.arcrobotics.ftclib.hardware.motors.CRServo;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
-import com.qualcomm.robotcore.hardware.CRServo;
-import com.qualcomm.robotcore.hardware.ColorRangeSensor;
-import com.qualcomm.robotcore.hardware.DcMotorSimple;
-import com.qualcomm.robotcore.hardware.Servo;
 
-import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
+public class Wheel extends HardwareSubsystem {
 
-public class Wheel extends Subsystem {
-    public static class Constants {
+    private final CRServo Wheel;
 
+    public static class WheelConstants {
+        public static Hardware hardware = new Hardware();
+        public static Value value = new Value();
 
-
-
-        public static Hardware hardware;
-        private static class Hardware {
-
-            public static Servo.Direction DIRECTION = Servo.Direction.FORWARD;
-
+        public static class Hardware {
+            public String ID = "Wheel";
+            public boolean REVERSED = true;
         }
-
-        public static Position position;
-        private static class Position {
-            public static double ON = 1;
-            public static double OFF = 0;
+        public static class Value {
+            public double INTAKE                       = 1; // Degrees
+            public double OUTTAKE                      = -1; // Degrees
         }
-
-
     }
 
-    private final CRServo wheel;
-
-    public Wheel(@NonNull OpMode opMode) {
+    public Wheel(OpMode opMode) {
         super(opMode);
-        wheel = opMode.hardwareMap.get(CRServo.class, "wheel");
-        wheel.setDirection(DcMotorSimple.Direction.FORWARD);
+        Wheel = new CRServo(hardwareMap, hardware.ID);
+        Wheel.setInverted(hardware.REVERSED);
+    }
+
+    public void open() {
+        Wheel.set(value.INTAKE);
+    }
+    public void close() {
+        Wheel.set(value.OUTTAKE);
+    }
+
+    public void off(){Wheel.set(0);}
+
+    @Override
+    public void init() {
+
     }
 
     @Override
-    protected void manualControl() {
-        if (opMode.gamepad1.right_trigger > 0.2) {
-            on();
-        }
-        else if (opMode.gamepad1.right_trigger < 0.2) {
-            off();
-        }
-    }
+    public void periodic() {
 
-    public void on() {
-        wheel.setPower(Constants.Position.ON);
-    }
-
-    public void off() {
-        wheel.setPower(Constants.Position.OFF);
     }
 }
