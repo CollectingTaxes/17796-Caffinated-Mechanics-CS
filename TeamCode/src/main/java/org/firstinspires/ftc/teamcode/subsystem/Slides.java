@@ -27,7 +27,7 @@ public class Slides extends HardwareSubsystem {
         public static class Hardware {
             public String LEFT_ID = "leftLift";
             public String RIGHT_ID = "rightLift";
-            public boolean LEFT_REVERSED = true;
+            public boolean LEFT_REVERSED = false;
             public boolean RIGHT_REVERSED = false;
             public double
                     RPM           = 435,
@@ -45,11 +45,11 @@ public class Slides extends HardwareSubsystem {
         }
         public static class Position {
             public double
-                    TALL = 955, // Degrees
-                    MIDDLE = 330, // Degrees
-                    LOWER = 0, // Degrees
+                    TALL = 2750, // Degrees
+                    MIDDLE = 2000, // Degrees
+                    LOWER = 1600 , // Degrees
                     INITIAL = 0,
-                    MAX_POSITION = 1210,
+                    MAX_POSITION = 2750,
                     MIN_POSITION = 0;
         }
         public static class Speed {
@@ -74,7 +74,7 @@ public class Slides extends HardwareSubsystem {
 
         public static class Position {
             public double
-                    HIGH          = 219, // Degrees
+                    HIGH          = 300, // Degrees
                     MID           = 219, // Degrees
                     LOW           = 142, // Degrees
                     INITIAL = 6,
@@ -91,8 +91,8 @@ public class Slides extends HardwareSubsystem {
         super(opMode);
         leftLiftMotor = hardwareMap.get(DcMotorEx.class, LiftMotorConstants.hardware.LEFT_ID);
         leftLiftMotor.setDirection(LiftMotorConstants.hardware.LEFT_REVERSED ? DcMotorSimple.Direction.FORWARD : DcMotorSimple.Direction.REVERSE);
-        leftLiftMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        leftLiftMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        leftLiftMotor.setZeroPowerBehavior(DcMotorEx.ZeroPowerBehavior.BRAKE);
+        leftLiftMotor.setMode(DcMotorEx.RunMode.STOP_AND_RESET_ENCODER);
 //        leftLiftMotor.setPIDFCoefficients(DcMotor.RunMode.RUN_TO_POSITION, new PIDFCoefficients(10, 0, 0, 0));
 //        leftLiftMotor.setTargetPositionTolerance();
 
@@ -105,10 +105,10 @@ public class Slides extends HardwareSubsystem {
 //        leftLiftMotor.setPIDFCoefficients(DcMotor.RunMode.RUN_TO_POSITION, new PIDFCoefficients(10, 0, 0, 0));
 //        leftLiftMotor.setTargetPositionTolerance();
 
-        leftLiftServo = new SimpleServo(hardwareMap, LiftServoConstants.hardware.LEFT_ID, 0, 270);
+        leftLiftServo = new SimpleServo(hardwareMap, LiftServoConstants.hardware.LEFT_ID, 0, 300);
         leftLiftServo.setInverted(LiftServoConstants.hardware.LEFT_REVERSED);
 
-        rightLiftServo = new SimpleServo(hardwareMap, LiftServoConstants.hardware.RIGHT_ID, 0, 270);
+        rightLiftServo = new SimpleServo(hardwareMap, LiftServoConstants.hardware.RIGHT_ID, 0, 300);
         rightLiftServo.setInverted(LiftServoConstants.hardware.RIGHT_REVERSED);
         initial();
     }
@@ -149,8 +149,8 @@ public class Slides extends HardwareSubsystem {
     public void setMotorAngle(double degrees) {
         leftLiftMotor.setTargetPosition((int) (LiftMotorConstants.hardware.CPR / 360 * degrees));
         rightLiftMotor.setTargetPosition((int) (LiftMotorConstants.hardware.CPR / 360 * degrees));
-        leftLiftMotor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-        rightLiftMotor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+        leftLiftMotor.setMode(DcMotorEx.RunMode.RUN_TO_POSITION);
+        rightLiftMotor.setMode(DcMotorEx.RunMode.RUN_TO_POSITION);
     }
 
     public void increaseMotorPosition () {
