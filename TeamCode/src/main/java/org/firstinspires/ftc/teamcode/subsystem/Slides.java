@@ -68,8 +68,8 @@ public class Slides extends HardwareSubsystem {
         public static class Hardware {
             public String LEFT_ID            = "leftServo";
             public String RIGHT_ID            = "rightServo";
-            public boolean LEFT_REVERSED     = false;
-            public boolean RIGHT_REVERSED     = true;
+            public boolean LEFT_REVERSED     = true;
+            public boolean RIGHT_REVERSED     = false;
         }
 
         public static class Position {
@@ -82,7 +82,7 @@ public class Slides extends HardwareSubsystem {
         }
         public static class Speed {
             public double
-                    SPEED_DEGREES_CHANGE          = 0.4;
+                    SPEED_DEGREES_CHANGE          = 1;
 
         }
     }
@@ -91,8 +91,8 @@ public class Slides extends HardwareSubsystem {
         super(opMode);
         leftLiftMotor = hardwareMap.get(DcMotorEx.class, LiftMotorConstants.hardware.LEFT_ID);
         leftLiftMotor.setDirection(LiftMotorConstants.hardware.LEFT_REVERSED ? DcMotorSimple.Direction.FORWARD : DcMotorSimple.Direction.REVERSE);
-        leftLiftMotor.setZeroPowerBehavior(DcMotorEx.ZeroPowerBehavior.BRAKE);
-        leftLiftMotor.setMode(DcMotorEx.RunMode.STOP_AND_RESET_ENCODER);
+        leftLiftMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        leftLiftMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
 //        leftLiftMotor.setPIDFCoefficients(DcMotor.RunMode.RUN_TO_POSITION, new PIDFCoefficients(10, 0, 0, 0));
 //        leftLiftMotor.setTargetPositionTolerance();
 
@@ -149,18 +149,23 @@ public class Slides extends HardwareSubsystem {
     public void setMotorAngle(double degrees) {
         leftLiftMotor.setTargetPosition((int) (LiftMotorConstants.hardware.CPR / 360 * degrees));
         rightLiftMotor.setTargetPosition((int) (LiftMotorConstants.hardware.CPR / 360 * degrees));
-        leftLiftMotor.setMode(DcMotorEx.RunMode.RUN_TO_POSITION);
-        rightLiftMotor.setMode(DcMotorEx.RunMode.RUN_TO_POSITION);
+        leftLiftMotor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+        rightLiftMotor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
     }
 
     public void increaseMotorPosition () {
-        changeMotorPosition(LiftMotorConstants.speed.SPEED_DEGREES_CHANGE);
-        turnToPositions();
+        leftLiftMotor.setPower(1);
+        rightLiftMotor.setPower(1);
     }
 
     public void decreaseMotorPosition () {
-        changeMotorPosition(-LiftMotorConstants.speed.SPEED_DEGREES_CHANGE);
-        turnToPositions();
+        leftLiftMotor.setPower(-1);
+        rightLiftMotor.setPower(-1);
+    }
+
+    public void off() {
+        leftLiftMotor.setPower(0);
+        rightLiftMotor.setPower(0);
     }
 
     public void changeMotorPosition(double degrees) {

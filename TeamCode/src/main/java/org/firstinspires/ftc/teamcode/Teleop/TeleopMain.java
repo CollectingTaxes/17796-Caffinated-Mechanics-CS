@@ -1,19 +1,12 @@
 package org.firstinspires.ftc.teamcode.Teleop;
 
 import static com.arcrobotics.ftclib.gamepad.GamepadKeys.Button.A;
-import static com.arcrobotics.ftclib.gamepad.GamepadKeys.Button.B;
-import static com.arcrobotics.ftclib.gamepad.GamepadKeys.Button.DPAD_DOWN;
-import static com.arcrobotics.ftclib.gamepad.GamepadKeys.Button.DPAD_LEFT;
-import static com.arcrobotics.ftclib.gamepad.GamepadKeys.Button.DPAD_RIGHT;
-import static com.arcrobotics.ftclib.gamepad.GamepadKeys.Button.DPAD_UP;
 import static com.arcrobotics.ftclib.gamepad.GamepadKeys.Button.LEFT_BUMPER;
 import static com.arcrobotics.ftclib.gamepad.GamepadKeys.Button.RIGHT_BUMPER;
 import static com.arcrobotics.ftclib.gamepad.GamepadKeys.Trigger.LEFT_TRIGGER;
 import static com.arcrobotics.ftclib.gamepad.GamepadKeys.Trigger.RIGHT_TRIGGER;
 
 import com.arcrobotics.ftclib.command.CommandOpMode;
-import com.arcrobotics.ftclib.command.CommandScheduler;
-import com.arcrobotics.ftclib.command.button.Trigger;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
 import org.firstinspires.ftc.teamcode.util.DriveConstants;
@@ -83,21 +76,13 @@ public class TeleopMain extends CommandOpMode {
          *
          */
 
-        command.add(() -> operator.get(DPAD_DOWN))
-                .whenPressed(lift::initial);
-
-        command.add(() -> operator.get(DPAD_UP))
-                .whenPressed(lift::high);
-        command.add(() -> operator.get(DPAD_LEFT))
-                .whenPressed(lift::mid);
-        command.add(() -> operator.get(DPAD_RIGHT))
-                .whenPressed(lift::low);
-
         command.add(() -> operator.getLeftY() > 0.3)
-                .whileHeld(lift::increaseMotorPosition);
+                .whileActiveContinuous(lift::increaseMotorPosition)
+                        .whenInactive(lift::off);
 
         command.add(() -> operator.getLeftY() < -0.3)
-                .whileHeld(lift::decreaseMotorPosition);
+                .whileActiveContinuous(lift::decreaseMotorPosition)
+                        .whenInactive(lift::off);
 
         command.add(() -> operator.getRightY() > 0.3)
                 .whileHeld(lift::increaseServoPosition);
